@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>테트리스 게임 (HTML5)</title>
+  <style>
+    body { background: #222; color: #fff; text-align: center; }
+    canvas { background: #111; display: block; margin: 20px auto; border: 2px solid #444; }
+    #score { font-size: 1.2em; margin-top: 10px; }
+    button { margin-top: 10px; padding: 8px 16px; font-size: 1em; }
+  </style>
+</head>
+<body>
+  <h2>테트리스 게임 (HTML5)</h2>
+  <canvas id="tetris" width="300" height="600"></canvas>
+  <div id="score">점수: 0</div>
+  <button onclick="restart()">다시 시작</button>
+  <script>
+    const canvas = document.getElementById('tetris');
+    const ctx = canvas.getContext('2d');
+    const COLS = 10, ROWS = 20, BLOCK = 30;
+    const COLORS = [
+      null,
+      '#0ff', // I
+      '#00f', // J
+      '#fa0', // L
+      '#ff0', // O
+      '#0f0', // S
+      '#f00', // Z
+      '#808'  // T
+    ];
+    const SHAPES = [
+      [],
+      [[1,1,1,1]], // I
+      [[1,0,0],[1,1,1]], // J
+      [[0,0,1],[1,1,1]], // L
+      [[1,1],[1,1]], // O
+      [[0,1,1],[1,1,0]], // S
+      [[1,1,0],[0,1,1]], // Z
+      [[0,1,0],[1,1,1]]  // T
+    ];
+
+    let board, piece, next, score, dropInterval, dropCounter, gameOver;
+
+    function resetBoard() {
+      board = Array.from({length: ROWS}, () => Array(COLS).fill(0));
+      score = 0;
+      dropInterval = 1000; // 블록이 2초마다 한 칸씩 내려오도록 수정
+      dropCounter = 0;
+      gameOver = false;
+      piece = randomPiece();
+      next = randomPiece();
+      updateScore();
+    }
+
+    function randomPiece() {
+      const type = Math.floor(Math.random() * (SHAPES.length - 1)) + 1;
+      return {
+        type,
+        shape: SHAPES[type].map(row => [...row]),
+        x: Math.floor(COLS / 2) - Math.ceil(SHAPES[type][0].length / 2),
+        y: 0
+      };
+    }
+
+    function collide(board, p) {
+      for (let y = 0; y < p.shape.length; ++y) {
+        for (let x = 0; x < p.shape[y].length; ++x) {
+          if (p.shape[y][x] &&
+            (board[p.y + y] && board[p.y + y][p.x + x]) !== 0) {
+            return true;
+          }
+        }
+      }
+      return false;
+    }
+
+    function merge(board, p) {
+      for (let y = 0; y < p.shape.length; ++y) {
+        for (let x = 0; x < p.shape[y].length; ++x) {
+          if (p.shape[y][x]) {
+            board[p.y + y][p.x + x] = p.type;
+          }
+        }
+      }
+    }
+
+    function rotate(shape) {
+      return shape[0].map((_, i) => shape.map(row => row[i])).reverse();
+    }
+
+    function drop() {
+      if (gameOver) return;
+      piece.y++;
+      if (collide(board, piece)) {
+        piece.y--;
+        merge(board, piece);
+        clearRows();
+        piece = next;
+        next = randomPiece();
+        if (collide(board, piece)) {
+          gameOver = true;
+          updateScore();
+          return;
+        }
+      }
+    }
+
+    function clearRows() {
+      let lines = 0;
+      outer: for (let y = ROWS - 1; y >= 0; --y) {
+        for (let x = 0; x < COLS; ++x) {
+          if (!board[y][x]) continue outer;
+        }
+        board.splice(y, 1);
+        board.unshift(Array(COLS).fill(0));
+        lines++;
+        y++;
+      }
+      if (lines) score += lines * 100;
+      updateScore();
+    }
+
+    function updateScore() {
+      document.getElementById('score').innerText =
+        gameOver ? `게임 오버! 점수: ${score}` : `점수: ${score}`;
+    }
+
+    function drawBlock(x, y, type) {
+      if (!type) return;
+      ctx.fillStyle = COLORS[type];
+      ctx.fillRect(x * BLOCK, y * BLOCK, BLOCK, BLOCK);
+      ctx.strokeStyle = '#222';
+      ctx.strokeRect(x * BLOCK, y * BLOCK, BLOCK, BLOCK);
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let y = 0; y < ROWS; ++y)
+        for (let x = 0; x < COLS; ++x)
+          drawBlock(x, y, board[y][x]);
+      for (let y = 0; y < piece.shape.length; ++y)
+        for (let x = 0; x < piece.shape[y].length; ++x)
+          if (piece.shape[y][x])
+            drawBlock(piece.x + x, piece.y + y, piece.type);
+    }
+
+    let lastTime = 0;
+    const FPS = 30; // 초당 프레임 수를 30으로 제한
+
+    function update(time = 0) {
+      if (gameOver) return;
+      const delta = time - lastTime;
+      if (delta < 1000 / FPS) {
+        requestAnimationFrame(update);
+        return;
+      }
+      lastTime = time;
+      dropCounter += delta;
+      if (dropCounter > dropInterval) {
+        drop();
+        dropCounter = 0;
+      }
+      draw();
+      requestAnimationFrame(update);
+    }
+
+    document.addEventListener('keydown', e => {
+      if (gameOver) return;
+      if (e.key === 'ArrowLeft') {
+        piece.x--;
+        if (collide(board, piece)) piece.x++;
+      } else if (e.key === 'ArrowRight') {
+        piece.x++;
+        if (collide(board, piece)) piece.x--;
+      } else if (e.key === 'ArrowDown') {
+        drop();
+      } else if (e.key === 'ArrowUp') {
+        const old = piece.shape;
+        piece.shape = rotate(piece.shape);
+        if (collide(board, piece)) piece.shape = old;
+      }
+      draw();
+    });
+
+    function restart() {
+      resetBoard();
+      draw();
+      requestAnimationFrame(update);
+    }
+
+    // 시작
+    resetBoard();
+    draw();
+    requestAnimationFrame(update);
+  </script>
+</body>
+</html>
