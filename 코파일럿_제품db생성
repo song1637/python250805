@@ -1,0 +1,78 @@
+import sqlite3
+import random
+
+class ProductDB:
+    def __init__(self, db_name="products.db"):
+        # 데이터베이스 연결
+        self.conn = sqlite3.connect(db_name)
+        self.cursor = self.conn.cursor()
+        # 테이블 생성
+        self.create_table()
+
+    def create_table(self):
+        # 제품 테이블 생성 쿼리
+        self.cursor.execute('''
+            CREATE TABLE IF NOT EXISTS products (
+                product_id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                price INTEGER NOT NULL
+            )
+        ''')
+        self.conn.commit()
+
+    def insert_product(self, product_id, name, price):
+        # 제품 추가
+        self.cursor.execute('''
+            INSERT INTO products (product_id, name, price)
+            VALUES (?, ?, ?)
+        ''', (product_id, name, price))
+        self.conn.commit()
+
+    def update_product(self, product_id, name=None, price=None):
+        # 제품 수정 (이름 또는 가격 또는 둘 다)
+        if name is not None and price is not None:
+            self.cursor.execute('UPDATE products SET name = ?, price = ? WHERE product_id = ?', (name, price, product_id))
+        elif name is not None:
+            self.cursor.execute('UPDATE products SET name = ? WHERE product_id = ?', (name, product_id))
+        elif price is not None:
+            self.cursor.execute('UPDATE products SET price = ? WHERE product_id = ?', (price, product_id))
+        self.conn.commit()
+
+    def delete_product(self, product_id):
+        # 제품 삭제
+        self.cursor.execute('DELETE FROM products WHERE product_id = ?', (product_id,))
+        self.conn.commit()
+
+    def select_all_products(self):
+        # 전체 제품 조회
+        self.cursor.execute('SELECT * FROM products')
+        return self.cursor.fetchall()
+
+    def close(self):
+        # 연결 종료
+        self.conn.close()
+
+# 전자제품 이름 샘플
+product_names = [
+    "노트북", "스마트폰", "태블릿", "데스크탑", "스마트워치", "헤드폰", "이어폰", "모니터", "프린터", "키보드",
+    "마우스", "스피커", "카메라", "캠코더", "TV", "냉장고", "세탁기", "에어컨", "청소기", "전자레인지"
+]
+
+# 100개 샘플 데이터 생성 및 삽입
+def generate_sample_data():
+    db = ProductDB()
+
+    for i in range(1, 101):  # 1부터 100까지
+        name = random.choice(product_names) + f" 모델{i}"
+        price = random.randint(50000, 3000000)  # 5만원 ~ 300만원
+        db.insert_product(i, name, price)
+
+    # 전체 제품 출력
+    products = db.select_all_products()
+    for p in products[:10]:  # 너무 많으니 앞에 10개만 출력
+        print(p)
+
+    db.close()
+
+# 실행
+generate_sample_data()
