@@ -1,13 +1,13 @@
-# pip install pygame
-
+#cmd
+#pip install pygame
 import pygame
 import random
 
 # 게임 설정
-WIDTH, HEIGHT = 300, 600
+SCREEN_WIDTH, SCREEN_HEIGHT = 300, 600
 BLOCK_SIZE = 30
-COLUMNS = WIDTH // BLOCK_SIZE
-ROWS = HEIGHT // BLOCK_SIZE
+COLUMNS = SCREEN_WIDTH // BLOCK_SIZE
+ROWS = SCREEN_HEIGHT // BLOCK_SIZE
 
 # 색상 정의
 BLACK = (0, 0, 0)
@@ -18,28 +18,33 @@ COLORS = [
     (255, 165, 0),  # L
     (255, 255, 0),  # O
     (0, 255, 0),    # S
-    (255, 0, 0),    # Z
     (128, 0, 128),  # T
+    (255, 0, 0)     # Z
 ]
 
-# 테트리스 블록 모양
-SHAPES = [
+# 테트로미노 모양
+TETROMINOS = [
     [[1, 1, 1, 1]],  # I
-    [[1, 0, 0], [1, 1, 1]],  # J
-    [[0, 0, 1], [1, 1, 1]],  # L
-    [[1, 1], [1, 1]],        # O
-    [[0, 1, 1], [1, 1, 0]],  # S
-    [[1, 1, 0], [0, 1, 1]],  # Z
-    [[0, 1, 0], [1, 1, 1]],  # T
+    [[1, 0, 0],
+     [1, 1, 1]],     # J
+    [[0, 0, 1],
+     [1, 1, 1]],     # L
+    [[1, 1],
+     [1, 1]],        # O
+    [[0, 1, 1],
+     [1, 1, 0]],     # S
+    [[0, 1, 0],
+     [1, 1, 1]],     # T
+    [[1, 1, 0],
+     [0, 1, 1]]      # Z
 ]
 
 class Tetromino:
-    def __init__(self):
-        self.type = random.randint(0, len(SHAPES) - 1)
-        self.shape = SHAPES[self.type]
-        self.color = COLORS[self.type]
-        self.x = COLUMNS // 2 - len(self.shape[0]) // 2
-        self.y = 0
+    def __init__(self, x, y, shape, color):
+        self.x = x
+        self.y = y
+        self.shape = shape
+        self.color = color
 
     def rotate(self):
         self.shape = [list(row) for row in zip(*self.shape[::-1])]
@@ -52,55 +57,84 @@ def create_grid(locked_positions={}):
                 grid[y][x] = locked_positions[(x, y)]
     return grid
 
-def valid_space(shape, offset, grid):
-    off_x, off_y = offset
-    for y, row in enumerate(shape):
-        for x, cell in enumerate(row):
+def convert_shape_format(tetromino):
+    positions = []
+    for i, row in enumerate(tetromino.shape):
+        for j, cell in enumerate(row):
             if cell:
-                px, py = x + off_x, y + off_y
-                if px < 0 or px >= COLUMNS or py >= ROWS:
-                    return False
-                if py >= 0 and grid[py][px] != BLACK:
-                    return False
+                positions.append((tetromino.x + j, tetromino.y + i))
+    return positions
+
+def valid_space(tetromino, grid):
+    accepted_positions = [[(x, y) for x in range(COLUMNS) if grid[y][x] == BLACK] for y in range(ROWS)]
+    accepted_positions = [pos for sub in accepted_positions for pos in sub]
+    formatted = convert_shape_format(tetromino)
+    for pos in formatted:
+        if pos not in accepted_positions:
+            if pos[1] > -1:
+                return False
     return True
+
+def check_lost(positions):
+    for pos in positions:
+        x, y = pos
+        if y < 1:
+            return True
+    return False
 
 def clear_rows(grid, locked):
     cleared = 0
     for y in range(ROWS-1, -1, -1):
         if BLACK not in grid[y]:
             cleared += 1
+            idx = y
             for x in range(COLUMNS):
                 try:
                     del locked[(x, y)]
                 except:
                     continue
-            for key in sorted(list(locked), key=lambda k: k[1])[::-1]:
-                x, yy = key
-                if yy < y:
-                    locked[(x, yy + 1)] = locked.pop((x, yy))
+    if cleared > 0:
+        for key in sorted(list(locked), key=lambda k: k[1])[::-1]:
+            x, y = key
+            if y < idx:
+                newKey = (x, y + cleared)
+                locked[newKey] = locked.pop(key)
     return cleared
+
+def get_shape():
+    idx = random.randint(0, len(TETROMINOS) - 1)
+    shape = TETROMINOS[idx]
+    color = COLORS[idx]
+    return Tetromino(COLUMNS // 2 - len(shape[0]) // 2, 0, shape, color)
 
 def draw_grid(surface, grid):
     for y in range(ROWS):
         for x in range(COLUMNS):
             pygame.draw.rect(surface, grid[y][x], (x*BLOCK_SIZE, y*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE), 0)
     for y in range(ROWS):
-        pygame.draw.line(surface, GRAY, (0, y*BLOCK_SIZE), (WIDTH, y*BLOCK_SIZE))
+        pygame.draw.line(surface, GRAY, (0, y*BLOCK_SIZE), (SCREEN_WIDTH, y*BLOCK_SIZE))
     for x in range(COLUMNS):
-        pygame.draw.line(surface, GRAY, (x*BLOCK_SIZE, 0), (x*BLOCK_SIZE, HEIGHT))
+        pygame.draw.line(surface, GRAY, (x*BLOCK_SIZE, 0), (x*BLOCK_SIZE, SCREEN_HEIGHT))
+
+def draw_window(surface, grid, score=0):
+    surface.fill(BLACK)
+    draw_grid(surface, grid)
+    font = pygame.font.SysFont('comicsans', 30)
+    label = font.render(f'Score: {score}', 1, (255,255,255))
+    surface.blit(label, (10, 10))
 
 def main():
     pygame.init()
-    win = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("테트리스 by Copilot")
-    clock = pygame.time.Clock()
+    win = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    pygame.display.set_caption('테트리스')
     locked_positions = {}
     grid = create_grid(locked_positions)
 
     change_piece = False
     run = True
-    current_piece = Tetromino()
-    next_piece = Tetromino()
+    current_piece = get_shape()
+    next_piece = get_shape()
+    clock = pygame.time.Clock()
     fall_time = 0
     fall_speed = 0.5
     score = 0
@@ -113,52 +147,55 @@ def main():
         if fall_time / 1000 > fall_speed:
             fall_time = 0
             current_piece.y += 1
-            if not valid_space(current_piece.shape, (current_piece.x, current_piece.y), grid):
+            if not valid_space(current_piece, grid) and current_piece.y > 0:
                 current_piece.y -= 1
-                for y, row in enumerate(current_piece.shape):
-                    for x, cell in enumerate(row):
-                        if cell:
-                            locked_positions[(current_piece.x + x, current_piece.y + y)] = current_piece.color
-                current_piece = next_piece
-                next_piece = Tetromino()
-                score += clear_rows(grid, locked_positions) * 100
-                if not valid_space(current_piece.shape, (current_piece.x, current_piece.y), grid):
-                    run = False
+                change_piece = True
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 run = False
+                pygame.quit()
+                return
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_LEFT:
                     current_piece.x -= 1
-                    if not valid_space(current_piece.shape, (current_piece.x, current_piece.y), grid):
+                    if not valid_space(current_piece, grid):
                         current_piece.x += 1
                 elif event.key == pygame.K_RIGHT:
                     current_piece.x += 1
-                    if not valid_space(current_piece.shape, (current_piece.x, current_piece.y), grid):
+                    if not valid_space(current_piece, grid):
                         current_piece.x -= 1
                 elif event.key == pygame.K_DOWN:
                     current_piece.y += 1
-                    if not valid_space(current_piece.shape, (current_piece.x, current_piece.y), grid):
+                    if not valid_space(current_piece, grid):
                         current_piece.y -= 1
                 elif event.key == pygame.K_UP:
                     current_piece.rotate()
-                    if not valid_space(current_piece.shape, (current_piece.x, current_piece.y), grid):
-                        for _ in range(3):  # 3번 더 돌려서 원래대로
+                    if not valid_space(current_piece, grid):
+                        for _ in range(3):  # 원래대로 돌리기
                             current_piece.rotate()
 
-        # 블록 그리기
-        for y, row in enumerate(current_piece.shape):
-            for x, cell in enumerate(row):
-                if cell and current_piece.y + y >= 0:
-                    pygame.draw.rect(win, current_piece.color, ((current_piece.x + x)*BLOCK_SIZE, (current_piece.y + y)*BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE), 0)
+        shape_pos = convert_shape_format(current_piece)
+        for x, y in shape_pos:
+            if y > -1:
+                grid[y][x] = current_piece.color
 
-        draw_grid(win, grid)
+        if change_piece:
+            for pos in shape_pos:
+                p = (pos[0], pos[1])
+                locked_positions[p] = current_piece.color
+            current_piece = next_piece
+            next_piece = get_shape()
+            change_piece = False
+            score += clear_rows(grid, locked_positions) * 10
+
+        draw_window(win, grid, score)
         pygame.display.update()
-        win.fill(BLACK)
+
+        if check_lost(locked_positions):
+            run = False
 
     pygame.quit()
-    print(f"게임 오버! 점수: {score}")
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

@@ -47,29 +47,43 @@ def test_manager_printInfo(capsys):
     assert "ID: 4, Name: 박민수, Title: 부장" in captured.out
 
 def test_employee():
-    e = Employee(5, "최지훈", "Python")
+    e = Employee(5, "최지우", "Python")
     assert e.id == 5
-    assert e.name == "최지훈"
+    assert e.name == "최지우"
     assert e.skill == "Python"
 
 def test_employee_printInfo(capsys):
-    e = Employee(6, "정수빈", "Java")
+    e = Employee(6, "정우성", "Java")
     e.printInfo()
     captured = capsys.readouterr()
-    assert "ID: 6, Name: 정수빈, Skill: Java" in captured.out
+    assert "ID: 6, Name: 정우성, Skill: Java" in captured.out
 
-def test_manager_is_person():
-    m = Manager(7, "오세훈", "과장")
+def test_inheritance_manager():
+    m = Manager(7, "김유신", "이사")
     assert isinstance(m, Person)
 
-def test_employee_is_person():
-    e = Employee(8, "김유진", "C++")
+def test_inheritance_employee():
+    e = Employee(8, "유관순", "C++")
     assert isinstance(e, Person)
 
-def test_manager_override():
-    m = Manager(9, "이준호", "사장")
-    assert hasattr(m, "printInfo")
+def test_manager_overriding(capsys):
+    m = Manager(9, "장보고", "대표")
+    m.printInfo()
+    captured = capsys.readouterr()
+    assert "Title: 대표" in captured.out
 
-def test_employee_override():
-    e = Employee(10, "박지민", "Go")
-    assert hasattr(e, "printInfo")
+def test_employee_overriding(capsys):
+    e = Employee(10, "신사임당", "Excel")
+    e.printInfo()
+    captured = capsys.readouterr()
+    assert "Skill: Excel" in captured.out
+
+if __name__ == "__main__":
+    p = Person(1, "홍길동")
+    p.printInfo()
+
+    m = Manager(2, "김철수", "팀장")
+    m.printInfo()
+
+    e = Employee(3, "이영희", "Python")
+    e.printInfo()
